@@ -3,6 +3,8 @@ package com.lose10.whatsapp;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lose10.ai.CoachingTurnService;
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import com.lose10.conversation.ConversationMessage;
 import com.lose10.conversation.ConversationService;
 import com.lose10.conversation.MessageDirection;
@@ -56,6 +58,7 @@ public class WhatsAppWebhookService {
     private final SubscriptionAccessChecker subscriptionAccessChecker;
     private final WhatsAppProvider whatsAppProvider;
     private final ObjectMapper objectMapper;
+    private final AnalyticsRecorder analyticsRecorder;
 
     public WhatsAppWebhookService(
             WhatsAppWebhookEventRecorder eventRecorder,
@@ -65,7 +68,8 @@ public class WhatsAppWebhookService {
             ConversationService conversationService,
             SubscriptionAccessChecker subscriptionAccessChecker,
             WhatsAppProvider whatsAppProvider,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AnalyticsRecorder analyticsRecorder
     ) {
         this.eventRecorder = eventRecorder;
         this.accountService = accountService;
@@ -75,6 +79,7 @@ public class WhatsAppWebhookService {
         this.subscriptionAccessChecker = subscriptionAccessChecker;
         this.whatsAppProvider = whatsAppProvider;
         this.objectMapper = objectMapper;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     public void process(JsonNode payload) {
@@ -160,6 +165,9 @@ public class WhatsAppWebhookService {
         WhatsAppProvider.SendResult result = whatsAppProvider.sendText(account.getPhoneE164(), outboundMessage.getContent());
         WhatsAppMessageStatus status = result.success() ? WhatsAppMessageStatus.SENT : WhatsAppMessageStatus.FAILED;
         whatsAppMessageRepository.save(new WhatsAppMessage(outboundMessage.getId(), MessageDirection.OUTBOUND, result.waMessageId(), status, Map.of()));
+        if (result.success()) {
+            analyticsRecorder.record(AnalyticsEventType.WHATSAPP_MESSAGE_SENT, account.getUserId());
+        }
     }
 
     private void recordInboundWhatsAppMessage(String waMessageId, UUID userId) {

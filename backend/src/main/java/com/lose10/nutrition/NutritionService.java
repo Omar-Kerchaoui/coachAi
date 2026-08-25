@@ -55,7 +55,7 @@ public class NutritionService {
         String mealType = request.mealType() != null ? request.mealType() : "SNACK";
         Meal meal = mealRepository.save(new Meal(log.getId(), Instant.now(), mealType));
 
-        MealEstimate estimate = calorieEstimator.estimate(request.description());
+        MealEstimate estimate = calorieEstimator.estimate(userId, request.description());
         MealItem item = mealItemRepository.save(new MealItem(meal.getId(), request.description(), estimate.calories(), estimate.proteinG(), "AI_ESTIMATE"));
 
         return MealItemResponse.from(item);

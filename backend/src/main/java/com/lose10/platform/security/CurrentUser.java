@@ -34,4 +34,19 @@ public final class CurrentUser {
         }
         return principal.userId();
     }
+
+    /**
+     * For the handful of admin actions that need a stricter check than role
+     * membership alone (e.g. CRITICAL safety event resolution requires
+     * ADMIN even though SUPPORT can otherwise use the safety queue —
+     * docs/backlog L10-904).
+     */
+    public static boolean hasRole(String role) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        String target = "ROLE_" + role;
+        return auth.getAuthorities().stream().anyMatch(a -> target.equals(a.getAuthority()));
+    }
 }

@@ -1,5 +1,8 @@
 package com.lose10.weight;
 
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
+import com.lose10.goal.GoalService;
 import com.lose10.platform.error.ApiException;
 import com.lose10.weight.dto.LogWeightRequest;
 import com.lose10.weight.dto.WeightEntryResponse;
@@ -30,10 +33,14 @@ public class WeightService {
 
     private final WeightEntryRepository repository;
     private final WeightTrendCalculator trendCalculator;
+    private final GoalService goalService;
+    private final AnalyticsRecorder analyticsRecorder;
 
-    public WeightService(WeightEntryRepository repository, WeightTrendCalculator trendCalculator) {
+    public WeightService(WeightEntryRepository repository, WeightTrendCalculator trendCalculator, GoalService goalService, AnalyticsRecorder analyticsRecorder) {
         this.repository = repository;
         this.trendCalculator = trendCalculator;
+        this.goalService = goalService;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     @Transactional
@@ -50,6 +57,8 @@ public class WeightService {
 
         Instant recordedAt = request.recordedAt() != null ? request.recordedAt() : Instant.now();
         WeightEntry entry = repository.save(new WeightEntry(userId, request.weightKg(), recordedAt, WeightSource.USER_REPORTED));
+        analyticsRecorder.record(AnalyticsEventType.WEIGHT_LOGGED, userId);
+        goalService.checkMilestones(userId, request.weightKg());
         return WeightEntryResponse.from(entry);
     }
 

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,10 +43,10 @@ public class MealCalorieEstimator {
         this.objectMapper = objectMapper;
     }
 
-    public MealEstimate estimate(String mealDescription) {
+    public MealEstimate estimate(UUID userId, String mealDescription) {
         try {
             AIResponse response = aiProvider.generate(new AIRequest(
-                    SYSTEM_PROMPT, List.of(Message.user(mealDescription)), List.of(), 100, AIRequest.AIRequestPurpose.COACHING_TURN
+                    SYSTEM_PROMPT, List.of(Message.user(mealDescription)), List.of(), 100, AIRequest.AIRequestPurpose.COACHING_TURN, userId
             ));
             return parse(response.text());
         } catch (AIProviderException e) {

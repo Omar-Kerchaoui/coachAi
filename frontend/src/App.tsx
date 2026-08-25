@@ -9,6 +9,8 @@ import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
 import PricingPage from "./pages/PricingPage";
 import BillingPage from "./pages/BillingPage";
+import ProgressPage from "./pages/ProgressPage";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
   return (
@@ -42,7 +44,7 @@ export default function App() {
             path="/progress"
             element={
               <RequireAuth>
-                <PlaceholderPage title="Progress" epic="Epic 9 — Dashboard, Admin & Analytics" />
+                <ProgressPage />
               </RequireAuth>
             }
           />
@@ -92,7 +94,7 @@ export default function App() {
             path="/admin"
             element={
               <RequireAuth>
-                <PlaceholderPage title="Admin" epic="Epic 9 — Dashboard, Admin & Analytics" />
+                <AdminPage />
               </RequireAuth>
             }
           />

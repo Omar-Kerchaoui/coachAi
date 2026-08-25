@@ -45,6 +45,13 @@ public class ConversationService {
     }
 
     @Transactional(readOnly = true)
+    public UUID userIdForThread(UUID threadId) {
+        return threadRepository.findById(threadId)
+                .map(ConversationThread::getUserId)
+                .orElseThrow(() -> com.lose10.platform.error.ApiException.notFound("Conversation thread not found"));
+    }
+
+    @Transactional(readOnly = true)
     public List<ConversationMessage> recentMessages(UUID userId, int limit) {
         ConversationThread thread = getOrCreateThread(userId);
         List<ConversationMessage> messages = messageRepository.findByThreadIdOrderByCreatedAtDesc(thread.getId(), PageRequest.of(0, limit));

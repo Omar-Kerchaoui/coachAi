@@ -65,7 +65,7 @@ public class MemoryExtractor {
     }
 
     public Optional<MemoryRecord> extractFrom(UUID userId, String userMessage, UUID sourceMessageId) {
-        MemoryCandidate candidate = detectCandidate(userMessage);
+        MemoryCandidate candidate = detectCandidate(userId, userMessage);
         if (!candidate.worthRemembering() || candidate.confidence() < MIN_CONFIDENCE_TO_STORE) {
             return Optional.empty();
         }
@@ -77,10 +77,10 @@ public class MemoryExtractor {
         return Optional.of(record);
     }
 
-    private MemoryCandidate detectCandidate(String message) {
+    private MemoryCandidate detectCandidate(UUID userId, String message) {
         try {
             AIResponse response = aiProvider.generate(new AIRequest(
-                    EXTRACTION_SYSTEM_PROMPT, List.of(Message.user(message)), List.of(), 300, AIRequest.AIRequestPurpose.MEMORY_EXTRACTION
+                    EXTRACTION_SYSTEM_PROMPT, List.of(Message.user(message)), List.of(), 300, AIRequest.AIRequestPurpose.MEMORY_EXTRACTION, userId
             ));
             return parseCandidate(response.text());
         } catch (AIProviderException e) {

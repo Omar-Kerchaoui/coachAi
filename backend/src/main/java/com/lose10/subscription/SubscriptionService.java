@@ -1,5 +1,7 @@
 package com.lose10.subscription;
 
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import com.lose10.auth.UserDirectory;
 import com.lose10.auth.dto.UserSummary;
 import com.lose10.platform.error.ApiException;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,6 +40,7 @@ public class SubscriptionService implements SubscriptionAccessChecker {
     private final RefundRepository refundRepository;
     private final StripeProvider stripeProvider;
     private final UserDirectory userDirectory;
+    private final AnalyticsRecorder analyticsRecorder;
     private final String successUrl;
     private final String cancelUrl;
     private final String portalReturnUrl;
@@ -48,6 +53,7 @@ public class SubscriptionService implements SubscriptionAccessChecker {
             RefundRepository refundRepository,
             StripeProvider stripeProvider,
             UserDirectory userDirectory,
+            AnalyticsRecorder analyticsRecorder,
             @Value("${lose10.stripe.checkout-success-url}") String successUrl,
             @Value("${lose10.stripe.checkout-cancel-url}") String cancelUrl,
             @Value("${lose10.stripe.portal-return-url}") String portalReturnUrl
@@ -59,6 +65,7 @@ public class SubscriptionService implements SubscriptionAccessChecker {
         this.refundRepository = refundRepository;
         this.stripeProvider = stripeProvider;
         this.userDirectory = userDirectory;
+        this.analyticsRecorder = analyticsRecorder;
         this.successUrl = successUrl;
         this.cancelUrl = cancelUrl;
         this.portalReturnUrl = portalReturnUrl;
@@ -130,6 +137,29 @@ public class SubscriptionService implements SubscriptionAccessChecker {
     }
 
     /**
+     * Annual plans are normalized to a monthly-equivalent contribution —
+     * standard MRR convention (docs/backlog L10-910). Computed on demand
+     * from live subscription+plan rows rather than cached, since the
+     * subscriber count here is small enough that this is cheap; the nightly
+     * rollup (docs/backlog L10-910's "not a live heavy-aggregation query on
+     * the dashboard request path") is about the dashboard read path, not
+     * this internal call.
+     */
+    @Transactional(readOnly = true)
+    public long monthlyRecurringRevenueCents() {
+        return subscriptionRepository.findByStatusIn(List.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING)).stream()
+                .mapToLong(sub -> planRepository.findById(sub.getPlanId())
+                        .map(plan -> plan.getBillingInterval() == PlanInterval.YEAR ? plan.getAmountCents() / 12L : (long) plan.getAmountCents())
+                        .orElse(0L))
+                .sum();
+    }
+
+    @Transactional(readOnly = true)
+    public long countByStatus(SubscriptionStatus status) {
+        return subscriptionRepository.countByStatus(status);
+    }
+
+    /**
      * Called from {@code SubscriptionWebhookService} for
      * customer.subscription.created/updated/deleted — the only place
      * {@code subscriptions.status} is ever written (docs/backlog L10-805).
@@ -151,12 +181,28 @@ public class SubscriptionService implements SubscriptionAccessChecker {
                 .or(() -> subscriptionRepository.findFirstByStripeCustomerIdOrderByCreatedAtDesc(stripeCustomerId))
                 .orElseThrow(() -> ApiException.notFound("No local subscription row for Stripe customer " + stripeCustomerId));
 
-        subscription.applyStripeState(stripeSubscriptionId, mapStatus(stripeStatus), trialEnd, currentPeriodEnd, cancelAtPeriodEnd);
+        SubscriptionStatus previousStatus = subscription.getStatus();
+        SubscriptionStatus newStatus = mapStatus(stripeStatus);
+        subscription.applyStripeState(stripeSubscriptionId, newStatus, trialEnd, currentPeriodEnd, cancelAtPeriodEnd);
 
         if (stripePriceId != null) {
             planRepository.findByStripePriceId(stripePriceId).ifPresent(plan -> subscription.reassignPlan(plan.getId()));
         }
+        emitLifecycleAnalytics(subscription.getUserId(), previousStatus, newStatus);
         return subscription.getId();
+    }
+
+    private void emitLifecycleAnalytics(UUID userId, SubscriptionStatus previousStatus, SubscriptionStatus newStatus) {
+        if (previousStatus == newStatus) {
+            return;
+        }
+        if (newStatus == SubscriptionStatus.TRIALING) {
+            analyticsRecorder.record(AnalyticsEventType.TRIAL_STARTED, userId);
+        } else if (newStatus == SubscriptionStatus.ACTIVE) {
+            analyticsRecorder.record(AnalyticsEventType.SUBSCRIPTION_STARTED, userId, Map.of("fromTrial", previousStatus == SubscriptionStatus.TRIALING));
+        } else if (newStatus == SubscriptionStatus.CANCELED) {
+            analyticsRecorder.record(AnalyticsEventType.SUBSCRIPTION_CANCELLED, userId);
+        }
     }
 
     @Transactional

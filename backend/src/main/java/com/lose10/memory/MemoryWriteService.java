@@ -2,6 +2,8 @@ package com.lose10.memory;
 
 import com.lose10.ai.AIProviderException;
 import com.lose10.ai.EmbeddingProvider;
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,24 +29,27 @@ public class MemoryWriteService {
     private final MemoryEventRepository eventRepository;
     private final MemoryEmbeddingRepository embeddingRepository;
     private final EmbeddingProvider embeddingProvider;
+    private final AnalyticsRecorder analyticsRecorder;
 
     public MemoryWriteService(
             MemoryRecordRepository memoryRepository,
             MemoryEventRepository eventRepository,
             MemoryEmbeddingRepository embeddingRepository,
-            EmbeddingProvider embeddingProvider
+            EmbeddingProvider embeddingProvider,
+            AnalyticsRecorder analyticsRecorder
     ) {
         this.memoryRepository = memoryRepository;
         this.eventRepository = eventRepository;
         this.embeddingRepository = embeddingRepository;
         this.embeddingProvider = embeddingProvider;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     @Transactional
     public MemoryRecord upsert(UUID userId, MemoryCategory category, String key, String content,
                                 MemoryImportance importance, BigDecimal confidence, UUID sourceMessageId) {
         MemoryRecord record = memoryRepository.findByUserIdAndCategoryAndKey(userId, category, key)
-                .map(existing -> updateExisting(existing, content, confidence))
+                .map(existing -> updateExisting(userId, existing, content, confidence))
                 .orElseGet(() -> createNew(userId, category, key, content, importance, confidence, sourceMessageId));
 
         generateAndStoreEmbedding(record);
@@ -55,10 +60,11 @@ public class MemoryWriteService {
                                     MemoryImportance importance, BigDecimal confidence, UUID sourceMessageId) {
         MemoryRecord record = memoryRepository.save(new MemoryRecord(userId, category, key, content, importance, confidence, sourceMessageId));
         eventRepository.save(new MemoryEvent(record.getId(), MemoryEvent.EventType.CREATED, null));
+        analyticsRecorder.record(AnalyticsEventType.MEMORY_CREATED, userId);
         return record;
     }
 
-    private MemoryRecord updateExisting(MemoryRecord existing, String newContent, BigDecimal newConfidence) {
+    private MemoryRecord updateExisting(UUID userId, MemoryRecord existing, String newContent, BigDecimal newConfidence) {
         String previousContent = existing.getContent();
         boolean contradicts = !previousContent.equalsIgnoreCase(newContent);
         existing.updateContent(newContent, newConfidence);
@@ -67,6 +73,7 @@ public class MemoryWriteService {
                 contradicts ? MemoryEvent.EventType.CONTRADICTED : MemoryEvent.EventType.UPDATED,
                 previousContent
         ));
+        analyticsRecorder.record(AnalyticsEventType.MEMORY_UPDATED, userId);
         return existing;
     }
 

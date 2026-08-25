@@ -1,5 +1,7 @@
 package com.lose10.training;
 
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import com.lose10.platform.error.ApiException;
 import com.lose10.training.dto.LogWorkoutSessionRequest;
 import com.lose10.training.dto.WorkoutExerciseResponse;
@@ -36,6 +38,7 @@ public class TrainingService {
     private final WorkoutExerciseRepository workoutExerciseRepository;
     private final WorkoutSessionRepository sessionRepository;
     private final ExerciseLibraryRepository exerciseLibraryRepository;
+    private final AnalyticsRecorder analyticsRecorder;
 
     public TrainingService(
             TrainingPlanRepository planRepository,
@@ -43,7 +46,8 @@ public class TrainingService {
             WorkoutRepository workoutRepository,
             WorkoutExerciseRepository workoutExerciseRepository,
             WorkoutSessionRepository sessionRepository,
-            ExerciseLibraryRepository exerciseLibraryRepository
+            ExerciseLibraryRepository exerciseLibraryRepository,
+            AnalyticsRecorder analyticsRecorder
     ) {
         this.planRepository = planRepository;
         this.versionRepository = versionRepository;
@@ -51,6 +55,7 @@ public class TrainingService {
         this.workoutExerciseRepository = workoutExerciseRepository;
         this.sessionRepository = sessionRepository;
         this.exerciseLibraryRepository = exerciseLibraryRepository;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     @Transactional
@@ -129,7 +134,9 @@ public class TrainingService {
 
     @Transactional
     public WorkoutSession logSession(UUID userId, LogWorkoutSessionRequest request) {
-        return sessionRepository.save(new WorkoutSession(userId, request.workoutId(), Instant.now(), request.perceivedEffort(), request.notes()));
+        WorkoutSession session = sessionRepository.save(new WorkoutSession(userId, request.workoutId(), Instant.now(), request.perceivedEffort(), request.notes()));
+        analyticsRecorder.record(AnalyticsEventType.WORKOUT_COMPLETED, userId);
+        return session;
     }
 
     @Transactional(readOnly = true)

@@ -7,6 +7,7 @@ import com.lose10.ai.dto.Message;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Classifies an inbound message so the orchestrator knows which context
@@ -36,13 +37,14 @@ public class IntentDetector {
         this.aiProvider = aiProvider;
     }
 
-    public Intent detect(String message) {
+    public Intent detect(UUID userId, String message) {
         AIRequest request = new AIRequest(
                 SYSTEM_PROMPT,
                 List.of(Message.user(message)),
                 List.of(),
                 10,
-                AIRequest.AIRequestPurpose.INTENT_CLASSIFICATION
+                AIRequest.AIRequestPurpose.INTENT_CLASSIFICATION,
+                userId
         );
         AIResponse response = aiProvider.generate(request);
         return parse(response.text());

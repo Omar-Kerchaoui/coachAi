@@ -35,19 +35,32 @@ public class WhatsAppMessage extends MutableEntity {
     @Column(name = "raw_payload", columnDefinition = "jsonb")
     private Map<String, Object> rawPayload;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 10)
+    private WhatsAppMessageType messageType = WhatsAppMessageType.SESSION;
+
     protected WhatsAppMessage() {
     }
 
     public WhatsAppMessage(UUID messageId, MessageDirection direction, String waMessageId, WhatsAppMessageStatus status, Map<String, Object> rawPayload) {
+        this(messageId, direction, waMessageId, status, rawPayload, WhatsAppMessageType.SESSION);
+    }
+
+    public WhatsAppMessage(UUID messageId, MessageDirection direction, String waMessageId, WhatsAppMessageStatus status, Map<String, Object> rawPayload, WhatsAppMessageType messageType) {
         this.messageId = messageId;
         this.direction = direction;
         this.waMessageId = waMessageId;
         this.status = status;
         this.rawPayload = rawPayload;
+        this.messageType = messageType;
     }
 
     public void updateStatus(WhatsAppMessageStatus status) {
         this.status = status;
+    }
+
+    public MessageDirection getDirection() {
+        return direction;
     }
 
     public String getWaMessageId() {
@@ -56,5 +69,9 @@ public class WhatsAppMessage extends MutableEntity {
 
     public WhatsAppMessageStatus getStatus() {
         return status;
+    }
+
+    public WhatsAppMessageType getMessageType() {
+        return messageType;
     }
 }

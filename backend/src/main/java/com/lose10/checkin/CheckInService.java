@@ -1,5 +1,7 @@
 package com.lose10.checkin;
 
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import com.lose10.platform.error.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,15 +27,18 @@ public class CheckInService {
     private final CheckInRepository checkInRepository;
     private final DailyCheckInRepository dailyCheckInRepository;
     private final WeeklyReviewRepository weeklyReviewRepository;
+    private final AnalyticsRecorder analyticsRecorder;
 
     public CheckInService(
             CheckInRepository checkInRepository,
             DailyCheckInRepository dailyCheckInRepository,
-            WeeklyReviewRepository weeklyReviewRepository
+            WeeklyReviewRepository weeklyReviewRepository,
+            AnalyticsRecorder analyticsRecorder
     ) {
         this.checkInRepository = checkInRepository;
         this.dailyCheckInRepository = dailyCheckInRepository;
         this.weeklyReviewRepository = weeklyReviewRepository;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     @Transactional
@@ -46,6 +51,7 @@ public class CheckInService {
         CheckIn checkIn = checkInRepository.findByIdAndUserId(checkInId, userId)
                 .orElseThrow(() -> ApiException.notFound("Check-in not found"));
         checkIn.complete(responses);
+        analyticsRecorder.record(AnalyticsEventType.CHECKIN_COMPLETED, userId, Map.of("type", checkIn.getCheckInType().name()));
 
         if (checkIn.getCheckInType() != CheckInType.WEEKLY) {
             upsertDailyCheckIn(userId, responses);

@@ -18,6 +18,8 @@ export default function NavBar() {
           {isAuthenticated ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+              <Link to="/progress">Progress</Link>
+              <Link to="/admin">Admin</Link>
               <button
                 onClick={() => {
                   void logout();

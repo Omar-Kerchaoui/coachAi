@@ -89,7 +89,7 @@ public class AIOrchestrator {
             return OrchestratorResult.safetyEscalation(inputSafety.severity());
         }
 
-        Intent intent = safeDetectIntent(inboundMessage);
+        Intent intent = safeDetectIntent(userId, inboundMessage);
         String context = contextBuilder.build(userId, inboundMessage, intent);
         String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(context);
         List<ToolDefinition> tools = toolRegistry.availableToolDefinitions();
@@ -100,7 +100,7 @@ public class AIOrchestrator {
         for (int iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
             AIResponse response;
             try {
-                response = aiProvider.generate(new AIRequest(systemPrompt, conversation, tools, MAX_RESPONSE_TOKENS, AIRequest.AIRequestPurpose.COACHING_TURN));
+                response = aiProvider.generate(new AIRequest(systemPrompt, conversation, tools, MAX_RESPONSE_TOKENS, AIRequest.AIRequestPurpose.COACHING_TURN, userId));
             } catch (AIProviderException e) {
                 log.error("AI provider call failed for user {}", userId, e);
                 return OrchestratorResult.providerUnavailable();
@@ -137,9 +137,9 @@ public class AIOrchestrator {
         return OrchestratorResult.success(text);
     }
 
-    private Intent safeDetectIntent(String message) {
+    private Intent safeDetectIntent(UUID userId, String message) {
         try {
-            return intentDetector.detect(message);
+            return intentDetector.detect(userId, message);
         } catch (AIProviderException e) {
             log.warn("Intent detection failed, defaulting to QUESTION", e);
             return Intent.QUESTION;

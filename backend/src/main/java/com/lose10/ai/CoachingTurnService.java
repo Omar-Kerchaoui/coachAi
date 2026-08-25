@@ -2,6 +2,8 @@ package com.lose10.ai;
 
 import com.lose10.ai.orchestrator.AIOrchestrator;
 import com.lose10.ai.orchestrator.OrchestratorResult;
+import com.lose10.analytics.AnalyticsEventType;
+import com.lose10.analytics.AnalyticsRecorder;
 import com.lose10.conversation.ConversationMessage;
 import com.lose10.conversation.ConversationService;
 import com.lose10.conversation.MessageDirection;
@@ -33,10 +35,12 @@ public class CoachingTurnService {
 
     private final ConversationService conversationService;
     private final AIOrchestrator orchestrator;
+    private final AnalyticsRecorder analyticsRecorder;
 
-    public CoachingTurnService(ConversationService conversationService, AIOrchestrator orchestrator) {
+    public CoachingTurnService(ConversationService conversationService, AIOrchestrator orchestrator, AnalyticsRecorder analyticsRecorder) {
         this.conversationService = conversationService;
         this.orchestrator = orchestrator;
+        this.analyticsRecorder = analyticsRecorder;
     }
 
     /**
@@ -46,6 +50,7 @@ public class CoachingTurnService {
      */
     public Optional<ConversationMessage> handleInboundMessage(UUID userId, String inboundText) {
         conversationService.recordMessage(userId, MessageDirection.INBOUND, MessageSender.USER, inboundText);
+        analyticsRecorder.record(AnalyticsEventType.AI_MESSAGE_RECEIVED, userId);
 
         OrchestratorResult result = orchestrator.handle(userId, inboundText);
 
@@ -55,6 +60,9 @@ public class CoachingTurnService {
 
         MessageSender outboundSender = result.status() == OrchestratorResult.Status.SUCCESS ? MessageSender.AI : MessageSender.SYSTEM;
         ConversationMessage outbound = conversationService.recordMessage(userId, MessageDirection.OUTBOUND, outboundSender, result.message());
+        if (outboundSender == MessageSender.AI) {
+            analyticsRecorder.record(AnalyticsEventType.AI_MESSAGE_SENT, userId);
+        }
         return Optional.of(outbound);
     }
 }

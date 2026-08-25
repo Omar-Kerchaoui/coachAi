@@ -85,3 +85,5 @@ lose10:
     checkout-success-url: ${STRIPE_CHECKOUT_SUCCESS_URL:http://localhost:5173/billing?checkout=success}
     checkout-cancel-url: ${STRIPE_CHECKOUT_CANCEL_URL:http://localhost:5173/pricing?checkout=cancelled}
     portal-return-url: ${STRIPE_PORTAL_RETURN_URL:http://localhost:5173/billing}
+  safety:
+    oncall-email: ${SAFETY_ONCALL_EMAIL:}

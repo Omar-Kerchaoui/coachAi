@@ -70,6 +70,10 @@ public class AiRequestLog extends BaseEntity {
         return model;
     }
 
+    public String getRequestType() {
+        return requestType;
+    }
+
     public int getInputTokens() {
         return inputTokens;
     }

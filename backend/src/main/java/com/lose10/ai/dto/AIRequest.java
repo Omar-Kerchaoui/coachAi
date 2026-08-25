@@ -1,13 +1,15 @@
 package com.lose10.ai.dto;
 
 import java.util.List;
+import java.util.UUID;
 
 public record AIRequest(
         String systemPrompt,
         List<Message> messages,
         List<ToolDefinition> tools,
         int maxTokens,
-        AIRequestPurpose purpose
+        AIRequestPurpose purpose,
+        UUID userId
 ) {
     /**
      * Distinguishes low-stakes sub-tasks (e.g. intent classification) from

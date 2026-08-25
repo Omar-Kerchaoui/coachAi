@@ -1,5 +1,6 @@
 package com.lose10.whatsapp;
 
+import com.lose10.conversation.MessageDirection;
 import com.lose10.platform.error.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,10 +15,12 @@ public class WhatsAppAccountService {
     private static final String OPT_IN_TEMPLATE = "lose10_opt_in";
 
     private final WhatsAppAccountRepository accountRepository;
+    private final WhatsAppMessageRepository messageRepository;
     private final WhatsAppProvider whatsAppProvider;
 
-    public WhatsAppAccountService(WhatsAppAccountRepository accountRepository, WhatsAppProvider whatsAppProvider) {
+    public WhatsAppAccountService(WhatsAppAccountRepository accountRepository, WhatsAppMessageRepository messageRepository, WhatsAppProvider whatsAppProvider) {
         this.accountRepository = accountRepository;
+        this.messageRepository = messageRepository;
         this.whatsAppProvider = whatsAppProvider;
     }
 
@@ -25,6 +28,11 @@ public class WhatsAppAccountService {
      * Sends the opt-in template; status only moves PENDING -> CONNECTED
      * once the user actually responds (docs/WHATSAPP.md §3), handled in
      * {@link WhatsAppWebhookService} identity resolution.
+     *
+     * <p>Records the send as a {@code TEMPLATE}-type {@link WhatsAppMessage}
+     * — this was previously not tracked at all, making template-message
+     * cost invisible to the cost dashboard (docs/backlog L10-912) even
+     * though it's a real Meta charge distinct from session-message pricing.
      */
     @Transactional
     public WhatsAppAccount connect(UUID userId, String phoneE164) {
@@ -33,6 +41,8 @@ public class WhatsAppAccountService {
         accountRepository.save(account);
 
         WhatsAppProvider.SendResult result = whatsAppProvider.sendTemplate(phoneE164, OPT_IN_TEMPLATE, Map.of());
+        WhatsAppMessageStatus status = result.success() ? WhatsAppMessageStatus.SENT : WhatsAppMessageStatus.FAILED;
+        messageRepository.save(new WhatsAppMessage(null, MessageDirection.OUTBOUND, result.waMessageId(), status, Map.of(), WhatsAppMessageType.TEMPLATE));
         if (!result.success()) {
             throw ApiException.businessRule("Failed to send WhatsApp opt-in message: " + result.errorMessage());
         }
@@ -47,6 +57,11 @@ public class WhatsAppAccountService {
     @Transactional(readOnly = true)
     public Optional<WhatsAppAccount> findByPhone(String phoneE164) {
         return accountRepository.findByPhoneE164(phoneE164);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<WhatsAppAccount> findByUserId(UUID userId) {
+        return accountRepository.findByUserId(userId);
     }
 
     @Transactional
