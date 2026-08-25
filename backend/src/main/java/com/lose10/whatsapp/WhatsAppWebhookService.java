@@ -3,7 +3,11 @@ package com.lose10.whatsapp;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lose10.ai.CoachingTurnService;
+import com.lose10.conversation.ConversationMessage;
+import com.lose10.conversation.ConversationService;
 import com.lose10.conversation.MessageDirection;
+import com.lose10.conversation.MessageSender;
+import com.lose10.subscription.SubscriptionAccessChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -41,11 +45,15 @@ public class WhatsAppWebhookService {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppWebhookService.class);
     private static final String STOP_KEYWORD = "STOP";
+    private static final String INACTIVE_SUBSCRIPTION_REPLY =
+            "Looks like your subscription isn't active right now. Head to the app to resubscribe and I'll pick right back up with you.";
 
     private final WhatsAppWebhookEventRecorder eventRecorder;
     private final WhatsAppAccountService accountService;
     private final WhatsAppMessageRepository whatsAppMessageRepository;
     private final CoachingTurnService coachingTurnService;
+    private final ConversationService conversationService;
+    private final SubscriptionAccessChecker subscriptionAccessChecker;
     private final WhatsAppProvider whatsAppProvider;
     private final ObjectMapper objectMapper;
 
@@ -54,6 +62,8 @@ public class WhatsAppWebhookService {
             WhatsAppAccountService accountService,
             WhatsAppMessageRepository whatsAppMessageRepository,
             CoachingTurnService coachingTurnService,
+            ConversationService conversationService,
+            SubscriptionAccessChecker subscriptionAccessChecker,
             WhatsAppProvider whatsAppProvider,
             ObjectMapper objectMapper
     ) {
@@ -61,6 +71,8 @@ public class WhatsAppWebhookService {
         this.accountService = accountService;
         this.whatsAppMessageRepository = whatsAppMessageRepository;
         this.coachingTurnService = coachingTurnService;
+        this.conversationService = conversationService;
+        this.subscriptionAccessChecker = subscriptionAccessChecker;
         this.whatsAppProvider = whatsAppProvider;
         this.objectMapper = objectMapper;
     }
@@ -119,9 +131,22 @@ public class WhatsAppWebhookService {
             return;
         }
 
-        Optional<com.lose10.conversation.ConversationMessage> outbound = coachingTurnService.handleInboundMessage(account.getUserId(), text);
         recordInboundWhatsAppMessage(waMessageId, account.getUserId());
 
+        // Checked here rather than inside the orchestrator (docs/backlog
+        // L10-809): billing is a WhatsApp/channel-level access concern, not
+        // a coaching concern, and this way a lapsed user never triggers an
+        // AI generation call at all — no wasted AI cost on a non-paying,
+        // lapsed user, not just a withheld response after the fact.
+        if (!subscriptionAccessChecker.hasActiveAccess(account.getUserId())) {
+            conversationService.recordMessage(account.getUserId(), MessageDirection.INBOUND, MessageSender.USER, text);
+            ConversationMessage reply = conversationService.recordMessage(
+                    account.getUserId(), MessageDirection.OUTBOUND, MessageSender.SYSTEM, INACTIVE_SUBSCRIPTION_REPLY);
+            sendAndLink(account, reply);
+            return;
+        }
+
+        Optional<ConversationMessage> outbound = coachingTurnService.handleInboundMessage(account.getUserId(), text);
         outbound.ifPresent(outboundMessage -> sendAndLink(account, outboundMessage));
     }
 
@@ -131,13 +156,13 @@ public class WhatsAppWebhookService {
      * Javadoc) — this only sends it and attaches WhatsApp delivery
      * metadata, never records the text a second time.
      */
-    private void sendAndLink(WhatsAppAccount account, com.lose10.conversation.ConversationMessage outboundMessage) {
+    private void sendAndLink(WhatsAppAccount account, ConversationMessage outboundMessage) {
         WhatsAppProvider.SendResult result = whatsAppProvider.sendText(account.getPhoneE164(), outboundMessage.getContent());
         WhatsAppMessageStatus status = result.success() ? WhatsAppMessageStatus.SENT : WhatsAppMessageStatus.FAILED;
         whatsAppMessageRepository.save(new WhatsAppMessage(outboundMessage.getId(), MessageDirection.OUTBOUND, result.waMessageId(), status, Map.of()));
     }
 
-    private void recordInboundWhatsAppMessage(String waMessageId, java.util.UUID userId) {
+    private void recordInboundWhatsAppMessage(String waMessageId, UUID userId) {
         // The ConversationMessage itself is already recorded by
         // CoachingTurnService.handleInboundMessage — this just links the
         // WhatsApp-specific delivery metadata (wa_message_id) alongside it.

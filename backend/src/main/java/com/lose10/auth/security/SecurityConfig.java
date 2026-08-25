@@ -68,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/whatsapp/webhook", "/api/v1/stripe/webhook").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/plans").permitAll()
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPPORT")
                         .anyRequest().authenticated()

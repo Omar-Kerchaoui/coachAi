@@ -7,6 +7,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
+import PricingPage from "./pages/PricingPage";
+import BillingPage from "./pages/BillingPage";
 
 export default function App() {
   return (
@@ -15,7 +17,7 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/pricing" element={<PlaceholderPage title="Pricing" epic="Epic 8 — Billing" />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/how-it-works" element={<PlaceholderPage title="How it works" />} />
           <Route path="/faq" element={<PlaceholderPage title="FAQ" />} />
           <Route path="/login" element={<LoginPage />} />
@@ -80,7 +82,7 @@ export default function App() {
             path="/billing"
             element={
               <RequireAuth>
-                <PlaceholderPage title="Billing" epic="Epic 8 — Stripe & Billing" />
+                <BillingPage />
               </RequireAuth>
             }
           />

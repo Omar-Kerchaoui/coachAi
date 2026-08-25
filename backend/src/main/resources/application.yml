@@ -77,3 +77,11 @@ lose10:
     verify-token: ${WHATSAPP_VERIFY_TOKEN:}
   scheduler:
     max-proactive-messages-per-day: ${SCHEDULER_MAX_PROACTIVE_PER_DAY:3}
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-signing-secret: ${STRIPE_WEBHOOK_SIGNING_SECRET:}
+    price-id-monthly: ${STRIPE_PRICE_ID_MONTHLY:}
+    price-id-annual: ${STRIPE_PRICE_ID_ANNUAL:}
+    checkout-success-url: ${STRIPE_CHECKOUT_SUCCESS_URL:http://localhost:5173/billing?checkout=success}
+    checkout-cancel-url: ${STRIPE_CHECKOUT_CANCEL_URL:http://localhost:5173/pricing?checkout=cancelled}
+    portal-return-url: ${STRIPE_PORTAL_RETURN_URL:http://localhost:5173/billing}
