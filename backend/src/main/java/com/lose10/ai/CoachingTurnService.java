@@ -2,20 +2,31 @@ package com.lose10.ai;
 
 import com.lose10.ai.orchestrator.AIOrchestrator;
 import com.lose10.ai.orchestrator.OrchestratorResult;
+import com.lose10.conversation.ConversationMessage;
 import com.lose10.conversation.ConversationService;
 import com.lose10.conversation.MessageDirection;
 import com.lose10.conversation.MessageSender;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Ties conversation persistence to the orchestrator, matching the pipeline
  * shape in docs/ARCHITECTURE.md §5 end to end: persist inbound → run the
  * orchestrator → persist outbound. This is the single entry point any
- * inbound-message channel calls — currently only the test endpoint
- * ({@code AiTestController}); Epic 7's WhatsApp webhook handler will call
- * this same method rather than duplicating the wiring.
+ * inbound-message channel calls — the test endpoint ({@code AiTestController})
+ * and the WhatsApp webhook handler ({@code WhatsAppWebhookService}) both call
+ * this rather than duplicating the wiring.
+ *
+ * <p>Returns the persisted {@link ConversationMessage}, not just its text —
+ * this is the single point where the outbound message is recorded. A
+ * caller that needs to actually deliver it (e.g. over WhatsApp) must not
+ * record it again itself; it should only attach delivery metadata to the
+ * message returned here. Recording it twice was a real bug caught via a
+ * live webhook test: the outbound text ended up persisted once under
+ * MessageSender.SYSTEM (from here) and again under MessageSender.AI (from
+ * the caller redundantly calling recordMessage a second time).
  */
 @Service
 public class CoachingTurnService {
@@ -28,21 +39,22 @@ public class CoachingTurnService {
         this.orchestrator = orchestrator;
     }
 
-    public String handleInboundMessage(UUID userId, String inboundText) {
+    /**
+     * @return the persisted outbound message, or empty if coaching is
+     * PAUSED/HUMAN_ACTIVE (docs/SECURITY.md §11) — nothing is sent or
+     * recorded in that case.
+     */
+    public Optional<ConversationMessage> handleInboundMessage(UUID userId, String inboundText) {
         conversationService.recordMessage(userId, MessageDirection.INBOUND, MessageSender.USER, inboundText);
 
         OrchestratorResult result = orchestrator.handle(userId, inboundText);
 
-        // COACHING_NOT_AUTOMATIC means a human has taken over or coaching is
-        // paused (docs/SECURITY.md §11) — nothing gets sent, so nothing gets
-        // recorded as an outbound message either.
         if (result.status() == OrchestratorResult.Status.COACHING_NOT_AUTOMATIC) {
-            return null;
+            return Optional.empty();
         }
 
         MessageSender outboundSender = result.status() == OrchestratorResult.Status.SUCCESS ? MessageSender.AI : MessageSender.SYSTEM;
-        conversationService.recordMessage(userId, MessageDirection.OUTBOUND, outboundSender, result.message());
-
-        return result.message();
+        ConversationMessage outbound = conversationService.recordMessage(userId, MessageDirection.OUTBOUND, outboundSender, result.message());
+        return Optional.of(outbound);
     }
 }

@@ -6,7 +6,6 @@ import com.lose10.conversation.ConversationService;
 import com.lose10.conversation.MessageDirection;
 import com.lose10.conversation.MessageSender;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -17,6 +16,15 @@ import java.util.UUID;
  * depends (via {@code ContextBuilder}) on {@code CheckInService} for the
  * "recent check-in" context section. Keeping the AI dependency out of
  * {@code CheckInService} breaks the cycle.
+ *
+ * <p>Deliberately NOT {@code @Transactional} at this level, for the same
+ * reason documented on {@code WhatsAppWebhookService}: wrapping the AI
+ * orchestrator call (which calls ContextBuilder, which gracefully catches
+ * "not found" exceptions from other inner {@code @Transactional} reads) in
+ * one ambient transaction causes Spring's AOP proxy to mark that
+ * transaction rollback-only the instant such an exception leaves the
+ * inner method — regardless of being caught one frame up — producing
+ * UnexpectedRollbackException at commit time.
  */
 @Service
 public class WeeklyReviewGenerator {
@@ -43,7 +51,6 @@ public class WeeklyReviewGenerator {
      * message, which is accurate: the review really is something the
      * coach says.
      */
-    @Transactional
     public WeeklyReview generate(UUID userId, LocalDate weekStart) {
         OrchestratorResult result = orchestrator.handle(userId, WEEKLY_REVIEW_PROMPT);
         conversationService.recordMessage(userId, MessageDirection.OUTBOUND, MessageSender.AI, result.message());

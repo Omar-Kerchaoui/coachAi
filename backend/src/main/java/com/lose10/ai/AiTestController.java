@@ -31,9 +31,11 @@ public class AiTestController {
 
     @PostMapping("/message")
     public ResponseEntity<Map<String, String>> sendMessage(@Valid @RequestBody SendMessageRequest request) {
-        String response = coachingTurnService.handleInboundMessage(CurrentUser.id(), request.message());
-        // response is null when coaching is PAUSED or HUMAN_ACTIVE (docs/SECURITY.md §11) —
+        // Empty when coaching is PAUSED or HUMAN_ACTIVE (docs/SECURITY.md §11) —
         // Map.of() throws NullPointerException on a null value, so this can't use it directly.
+        String response = coachingTurnService.handleInboundMessage(CurrentUser.id(), request.message())
+                .map(com.lose10.conversation.ConversationMessage::getContent)
+                .orElse(null);
         Map<String, String> body = new java.util.HashMap<>();
         body.put("response", response);
         return ResponseEntity.ok(body);

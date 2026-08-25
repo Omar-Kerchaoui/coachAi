@@ -70,3 +70,10 @@ lose10:
       api-key: ${EMBEDDING_API_KEY:}
       model: ${EMBEDDING_MODEL_ID:voyage-3.5}
       dimension: ${EMBEDDING_DIMENSION:1024}
+  whatsapp:
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    app-secret: ${WHATSAPP_APP_SECRET:}
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+  scheduler:
+    max-proactive-messages-per-day: ${SCHEDULER_MAX_PROACTIVE_PER_DAY:3}
