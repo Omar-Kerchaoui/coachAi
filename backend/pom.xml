@@ -54,7 +54,9 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <!-- Not runtime-only: VectorType (docs/MEMORY.md §7) references
+                 PGobject/PGBinaryObject directly at compile time via
+                 pgvector-java's PGvector, which extends them. -->
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -82,6 +84,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- pgvector JDBC binding for semantic memory (docs/MEMORY.md §7) -->
+        <dependency>
+            <groupId>com.pgvector</groupId>
+            <artifactId>pgvector</artifactId>
+            <version>0.1.6</version>
         </dependency>
 
         <!-- Boilerplate reduction -->
