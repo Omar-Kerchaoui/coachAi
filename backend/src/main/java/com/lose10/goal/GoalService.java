@@ -31,6 +31,9 @@ public class GoalService {
         if (goalRepository.existsByUserIdAndStatus(userId, GoalStatus.ACTIVE)) {
             throw ApiException.businessRule("An active goal already exists — pause or complete it before creating a new one");
         }
+        if (request.targetWeightKg().compareTo(request.startingWeightKg()) >= 0) {
+            throw ApiException.businessRule("Target weight must be lower than starting weight for a weight-loss goal");
+        }
         Goal goal = new Goal(userId, request.startingWeightKg(), request.targetWeightKg(), request.targetDate());
         goal = goalRepository.save(goal);
 
@@ -48,6 +51,10 @@ public class GoalService {
     @Transactional
     public GoalResponse updateGoal(UUID userId, UUID goalId, UpdateGoalRequest request) {
         Goal goal = requireOwnedGoal(goalId, userId);
+
+        if (request.targetWeightKg() != null && request.targetWeightKg().compareTo(goal.getStartingWeightKg()) >= 0) {
+            throw ApiException.businessRule("Target weight must be lower than starting weight for a weight-loss goal");
+        }
 
         eventRepository.save(new GoalEvent(goal.getId(), "GOAL_TARGET_CHANGED", Map.of(
                 "previousTargetWeightKg", goal.getTargetWeightKg(),

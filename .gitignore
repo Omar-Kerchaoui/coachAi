@@ -16,6 +16,9 @@ frontend/dist/
 frontend/.vite/
 npm-debug.log*
 
+# Local tooling
+.claude/
+
 # IDE
 .idea/
 .vscode/

@@ -27,15 +27,18 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository repository;
     private final TokenHasher hasher;
+    private final RefreshTokenFamilyRevoker familyRevoker;
     private final Duration ttl;
 
     public RefreshTokenService(
             RefreshTokenRepository repository,
             TokenHasher hasher,
+            RefreshTokenFamilyRevoker familyRevoker,
             @Value("${lose10.auth.refresh-token-ttl-days}") long ttlDays
     ) {
         this.repository = repository;
         this.hasher = hasher;
+        this.familyRevoker = familyRevoker;
         this.ttl = Duration.ofDays(ttlDays);
     }
 
@@ -51,7 +54,10 @@ public class RefreshTokenService {
                 .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED, HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
 
         if (existing.isRevoked()) {
-            revokeFamily(existing.getFamilyId());
+            // Committed independently (REQUIRES_NEW) so it survives this
+            // method's own rollback when it throws below — see
+            // RefreshTokenFamilyRevoker's Javadoc for why that matters.
+            familyRevoker.revokeFamily(existing.getFamilyId());
             throw new ApiException(ErrorCode.TOKEN_REUSE_DETECTED, HttpStatus.UNAUTHORIZED,
                     "Refresh token reuse detected — all sessions in this family have been revoked");
         }
@@ -77,15 +83,6 @@ public class RefreshTokenService {
     @Transactional
     public void revokeAllForUser(UUID userId) {
         List<RefreshToken> tokens = repository.findByUserId(userId);
-        for (RefreshToken t : tokens) {
-            if (!t.isRevoked()) {
-                t.revoke(null);
-            }
-        }
-    }
-
-    private void revokeFamily(UUID familyId) {
-        List<RefreshToken> tokens = repository.findByFamilyId(familyId);
         for (RefreshToken t : tokens) {
             if (!t.isRevoked()) {
                 t.revoke(null);
