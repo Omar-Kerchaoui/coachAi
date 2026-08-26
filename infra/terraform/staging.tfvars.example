@@ -1,0 +1,4 @@
+environment  = "staging"
+domain_name  = "lose10.app"
+db_multi_az  = false # staging is allowed to be single-AZ — see rds.tf
+oncall_email = "oncall@example.com"

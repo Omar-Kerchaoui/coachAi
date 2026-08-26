@@ -1,0 +1,103 @@
+name: Deploy
+
+# docs/DEPLOYMENT.md §4 / docs/backlog L10-1103: merge to main -> build ->
+# push to ECR -> deploy staging automatically -> manual promotion to
+# production. This workflow cannot run to completion by itself — it needs
+# AWS credentials (an OIDC role, not long-lived keys) configured as repo
+# secrets, and the infra in infra/terraform actually applied first, so the
+# ECR repository / ECS cluster / services it references exist. Until then
+# it will fail at the "configure AWS credentials" step, which is the
+# correct failure mode (loud and early) rather than silently no-op-ing.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  id-token: write # required for OIDC federation to AWS — no long-lived AWS keys stored in this repo
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: lose10-backend
+
+jobs:
+  build-and-push:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        working-directory: backend
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build -t "$REGISTRY/$ECR_REPOSITORY:$TAG" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$TAG"
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging # no required-reviewer protection rule on this one — deploys automatically, per the AC
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS (staging)
+        run: |
+          aws ecs update-service \
+            --cluster lose10-staging \
+            --service lose10-staging-backend \
+            --force-new-deployment \
+            --task-definition "lose10-staging-backend"
+          aws ecs wait services-stable --cluster lose10-staging --services lose10-staging-backend
+
+  deploy-production:
+    needs: [build-and-push, deploy-staging]
+    runs-on: ubuntu-latest
+    # The manual gate lives in GitHub's own environment protection rules
+    # for the "production" environment (Settings -> Environments ->
+    # production -> required reviewers), not in this YAML — that's the
+    # part of the AC that has to be configured once, by a repo admin, in
+    # the GitHub UI. A workflow file alone cannot enforce "cannot be
+    # bypassed by pipeline config alone"; a protected environment can,
+    # because a run targeting it simply pauses and waits for an approving
+    # reviewer regardless of what this file says.
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS (production)
+        run: |
+          aws ecs update-service \
+            --cluster lose10-production \
+            --service lose10-production-backend \
+            --force-new-deployment \
+            --task-definition "lose10-production-backend"
+          aws ecs wait services-stable --cluster lose10-production --services lose10-production-backend

@@ -1,0 +1,8 @@
+environment  = "production"
+domain_name  = "lose10.app"
+db_multi_az  = true
+oncall_email = "oncall@example.com"
+
+# Production runs a larger DB instance than the default — tune once real
+# traffic numbers exist (docs/backlog L10-1010 load test results).
+db_instance_class = "db.r6g.large"
