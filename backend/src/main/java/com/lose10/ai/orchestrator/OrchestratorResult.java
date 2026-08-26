@@ -3,7 +3,7 @@ package com.lose10.ai.orchestrator;
 public record OrchestratorResult(Status status, String message) {
 
     public enum Status {
-        SUCCESS, SAFETY_ESCALATION, PROVIDER_UNAVAILABLE, VALIDATION_FAILED, COACHING_NOT_AUTOMATIC
+        SUCCESS, SAFETY_ESCALATION, PROVIDER_UNAVAILABLE, VALIDATION_FAILED, COACHING_NOT_AUTOMATIC, RATE_LIMITED
     }
 
     private static final String CRITICAL_SAFETY_FALLBACK =
@@ -22,6 +22,9 @@ public record OrchestratorResult(Status status, String message) {
     private static final String VALIDATION_FAILED_FALLBACK =
             "Sorry, let's try that again — could you rephrase?";
 
+    private static final String RATE_LIMITED_FALLBACK =
+            "We've been chatting a lot in the last hour — let's pick this back up a bit later.";
+
     public static OrchestratorResult success(String text) {
         return new OrchestratorResult(Status.SUCCESS, text);
     }
@@ -37,6 +40,10 @@ public record OrchestratorResult(Status status, String message) {
 
     public static OrchestratorResult validationFailed() {
         return new OrchestratorResult(Status.VALIDATION_FAILED, VALIDATION_FAILED_FALLBACK);
+    }
+
+    public static OrchestratorResult rateLimited() {
+        return new OrchestratorResult(Status.RATE_LIMITED, RATE_LIMITED_FALLBACK);
     }
 
     /**

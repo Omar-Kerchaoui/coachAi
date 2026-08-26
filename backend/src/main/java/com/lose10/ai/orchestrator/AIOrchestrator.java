@@ -12,11 +12,14 @@ import com.lose10.ai.safety.SafetyAssessment;
 import com.lose10.ai.tools.ToolRegistry;
 import com.lose10.ai.tools.ToolResult;
 import com.lose10.coaching.CoachingStateService;
+import com.lose10.platform.ratelimit.RateLimiterService;
 import com.lose10.safety.SafetyEventService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -54,6 +57,8 @@ public class AIOrchestrator {
     private final ToolRegistry toolRegistry;
     private final AIProvider aiProvider;
     private final ResponseValidator responseValidator;
+    private final RateLimiterService rateLimiterService;
+    private final int perUserPerHourLimit;
 
     public AIOrchestrator(
             SafetyAnalyzer safetyAnalyzer,
@@ -63,7 +68,9 @@ public class AIOrchestrator {
             ContextBuilder contextBuilder,
             ToolRegistry toolRegistry,
             AIProvider aiProvider,
-            ResponseValidator responseValidator
+            ResponseValidator responseValidator,
+            RateLimiterService rateLimiterService,
+            @Value("${lose10.ai.rate-limit.per-user-per-hour}") int perUserPerHourLimit
     ) {
         this.safetyAnalyzer = safetyAnalyzer;
         this.safetyEventService = safetyEventService;
@@ -73,6 +80,8 @@ public class AIOrchestrator {
         this.toolRegistry = toolRegistry;
         this.aiProvider = aiProvider;
         this.responseValidator = responseValidator;
+        this.rateLimiterService = rateLimiterService;
+        this.perUserPerHourLimit = perUserPerHourLimit;
     }
 
     public OrchestratorResult handle(UUID userId, String inboundMessage) {
@@ -81,6 +90,16 @@ public class AIOrchestrator {
         // AI is still mid-generation for the same message (docs/SECURITY.md §11).
         if (!coachingStateService.allowsAutomaticAiResponse(userId)) {
             return OrchestratorResult.coachingNotAutomatic();
+        }
+
+        // The AI endpoint class rate limit (docs/SECURITY.md §6 — "the
+        // direct cost driver... also protects against runaway
+        // conversational loops"). lose10.ai.rate-limit.per-user-per-hour
+        // was configured since Epic 4 but never actually consumed anywhere
+        // until now (docs/backlog L10-1007) — found by auditing every
+        // class SECURITY.md documents against what's actually wired.
+        if (!rateLimiterService.tryConsume("ai-turn:" + userId, perUserPerHourLimit, Duration.ofHours(1))) {
+            return OrchestratorResult.rateLimited();
         }
 
         SafetyAssessment inputSafety = safetyAnalyzer.screen(inboundMessage);

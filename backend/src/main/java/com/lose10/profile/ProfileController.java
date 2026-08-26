@@ -3,6 +3,7 @@ package com.lose10.profile;
 import com.lose10.auth.AccountService;
 import com.lose10.platform.security.CurrentUser;
 import com.lose10.profile.dto.ConsentRequest;
+import com.lose10.profile.dto.ConsentResponse;
 import com.lose10.profile.dto.DataExportResponse;
 import com.lose10.profile.dto.ProfileResponse;
 import com.lose10.profile.dto.UpdatePreferencesRequest;
@@ -45,6 +46,11 @@ public class ProfileController {
     @PatchMapping("/me/preferences")
     public ResponseEntity<ProfileResponse> updatePreferences(@Valid @RequestBody UpdatePreferencesRequest request) {
         return ResponseEntity.ok(profileService.updatePreferences(CurrentUser.id(), request));
+    }
+
+    @GetMapping("/me/consents")
+    public ResponseEntity<java.util.List<ConsentResponse>> listConsents() {
+        return ResponseEntity.ok(profileService.listConsents(CurrentUser.id()).stream().map(ConsentResponse::from).toList());
     }
 
     @PostMapping("/me/consents")

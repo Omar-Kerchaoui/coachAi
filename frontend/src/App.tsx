@@ -11,6 +11,9 @@ import PricingPage from "./pages/PricingPage";
 import BillingPage from "./pages/BillingPage";
 import ProgressPage from "./pages/ProgressPage";
 import AdminPage from "./pages/AdminPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
   return (
@@ -76,7 +79,7 @@ export default function App() {
             path="/settings"
             element={
               <RequireAuth>
-                <PlaceholderPage title="Settings" />
+                <SettingsPage />
               </RequireAuth>
             }
           />
@@ -88,8 +91,8 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/privacy" element={<PlaceholderPage title="Privacy Policy" epic="Epic 10 — pending legal review" />} />
-          <Route path="/terms" element={<PlaceholderPage title="Terms of Service" epic="Epic 10 — pending legal review" />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route
             path="/admin"
             element={

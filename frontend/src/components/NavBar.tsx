@@ -20,6 +20,7 @@ export default function NavBar() {
               <Link to="/dashboard">Dashboard</Link>
               <Link to="/progress">Progress</Link>
               <Link to="/admin">Admin</Link>
+              <Link to="/settings">Settings</Link>
               <button
                 onClick={() => {
                   void logout();
