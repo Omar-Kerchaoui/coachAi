@@ -9,4 +9,6 @@ public interface SafetyEventRepository extends JpaRepository<SafetyEvent, UUID> 
     List<SafetyEvent> findByResolvedFalseOrderByCreatedAtDesc();
 
     List<SafetyEvent> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

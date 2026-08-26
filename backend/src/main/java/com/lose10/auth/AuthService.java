@@ -2,6 +2,7 @@ package com.lose10.auth;
 
 import com.lose10.auth.dto.TokenPairResponse;
 import com.lose10.auth.dto.UserSummary;
+import com.lose10.auth.event.UserDeletionRequestedEvent;
 import com.lose10.auth.event.UserRegisteredEvent;
 import com.lose10.auth.security.JwtService;
 import com.lose10.auth.security.RefreshTokenService;
@@ -112,17 +113,22 @@ public class AuthService implements AccountService {
     }
 
     /**
-     * Soft-delete only (L10-210). The full cross-domain cascade purge is
-     * implemented in E10 (L10-1004) once every domain that can hold this
-     * user's data exists.
+     * Anonymizes the account row (never hard-deletes it — subscriptions/
+     * payments/audit_logs reference it and must survive per their own
+     * retention requirements, docs/backlog L10-1004) and fans out
+     * {@link UserDeletionRequestedEvent} so every domain module purges its
+     * own tables. Each listener runs synchronously in this same
+     * transaction: a full deletion cascade should be all-or-nothing, not
+     * left half-done if one domain's purge fails partway through.
      */
     @Override
     @Transactional
     public void deleteAccount(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("User not found"));
-        user.softDelete();
+        user.anonymize();
         refreshTokenService.revokeAllForUser(userId);
+        eventPublisher.publishEvent(new UserDeletionRequestedEvent(userId));
         auditLogService.record(userId, AuditLog.ActorType.USER, "USER_DELETED", "User", userId);
     }
 }

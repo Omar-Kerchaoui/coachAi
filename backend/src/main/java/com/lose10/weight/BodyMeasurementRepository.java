@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface BodyMeasurementRepository extends JpaRepository<BodyMeasurement, UUID> {
     List<BodyMeasurement> findByUserIdOrderByRecordedAtDesc(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

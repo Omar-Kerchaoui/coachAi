@@ -20,4 +20,6 @@ public interface MemoryRecordRepository extends JpaRepository<MemoryRecord, UUID
     List<MemoryRecord> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
     Optional<MemoryRecord> findByIdAndUserId(UUID id, UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface NutritionProfileRepository extends JpaRepository<NutritionProfile, UUID> {
     Optional<NutritionProfile> findByUserId(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

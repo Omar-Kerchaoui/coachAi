@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface WeeklyReviewRepository extends JpaRepository<WeeklyReview, UUID> {
     List<WeeklyReview> findByUserIdOrderByWeekStartDesc(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

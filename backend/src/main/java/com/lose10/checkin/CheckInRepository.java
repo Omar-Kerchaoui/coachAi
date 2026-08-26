@@ -10,4 +10,6 @@ public interface CheckInRepository extends JpaRepository<CheckIn, UUID> {
     List<CheckIn> findTop20ByUserIdOrderByScheduledForDesc(UUID userId);
 
     Optional<CheckIn> findByIdAndUserId(UUID id, UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

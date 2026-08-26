@@ -16,4 +16,6 @@ public interface GoalRepository extends JpaRepository<Goal, UUID> {
     boolean existsByUserIdAndStatus(UUID userId, GoalStatus status);
 
     List<Goal> findByStatus(GoalStatus status);
+
+    void deleteByUserId(UUID userId);
 }

@@ -53,4 +53,8 @@ public class WorkoutSession extends BaseEntity {
     public Integer getPerceivedEffort() {
         return perceivedEffort;
     }
+
+    public String getNotes() {
+        return notes;
+    }
 }

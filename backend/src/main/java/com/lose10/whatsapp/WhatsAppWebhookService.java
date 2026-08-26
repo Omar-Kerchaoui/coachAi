@@ -136,8 +136,6 @@ public class WhatsAppWebhookService {
             return;
         }
 
-        recordInboundWhatsAppMessage(waMessageId, account.getUserId());
-
         // Checked here rather than inside the orchestrator (docs/backlog
         // L10-809): billing is a WhatsApp/channel-level access concern, not
         // a coaching concern, and this way a lapsed user never triggers an
@@ -145,6 +143,7 @@ public class WhatsAppWebhookService {
         // lapsed user, not just a withheld response after the fact.
         if (!subscriptionAccessChecker.hasActiveAccess(account.getUserId())) {
             conversationService.recordMessage(account.getUserId(), MessageDirection.INBOUND, MessageSender.USER, text);
+            recordInboundWhatsAppMessage(waMessageId, account.getUserId());
             ConversationMessage reply = conversationService.recordMessage(
                     account.getUserId(), MessageDirection.OUTBOUND, MessageSender.SYSTEM, INACTIVE_SUBSCRIPTION_REPLY);
             sendAndLink(account, reply);
@@ -152,6 +151,7 @@ public class WhatsAppWebhookService {
         }
 
         Optional<ConversationMessage> outbound = coachingTurnService.handleInboundMessage(account.getUserId(), text);
+        recordInboundWhatsAppMessage(waMessageId, account.getUserId());
         outbound.ifPresent(outboundMessage -> sendAndLink(account, outboundMessage));
     }
 
@@ -170,11 +170,20 @@ public class WhatsAppWebhookService {
         }
     }
 
+    /**
+     * Called after the inbound ConversationMessage is already recorded
+     * (either by the gated-reply branch or inside
+     * {@code CoachingTurnService.handleInboundMessage}) — resolves its id
+     * so this row is actually linked, not just delivery metadata floating
+     * with a null message_id. It used to hardcode {@code null} here despite
+     * the comment claiming otherwise: the account-deletion cascade
+     * (docs/backlog L10-1004) exposed it by leaving these rows as orphans
+     * no purge could find, since whatsapp_messages has no other column
+     * that identifies which user it belongs to.
+     */
     private void recordInboundWhatsAppMessage(String waMessageId, UUID userId) {
-        // The ConversationMessage itself is already recorded by
-        // CoachingTurnService.handleInboundMessage — this just links the
-        // WhatsApp-specific delivery metadata (wa_message_id) alongside it.
-        whatsAppMessageRepository.save(new WhatsAppMessage(null, MessageDirection.INBOUND, waMessageId, WhatsAppMessageStatus.DELIVERED, Map.of()));
+        UUID messageId = conversationService.mostRecentInboundMessageId(userId);
+        whatsAppMessageRepository.save(new WhatsAppMessage(messageId, MessageDirection.INBOUND, waMessageId, WhatsAppMessageStatus.DELIVERED, Map.of()));
     }
 
     private void handleStatusUpdate(JsonNode status) {

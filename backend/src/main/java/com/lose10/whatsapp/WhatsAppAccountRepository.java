@@ -9,4 +9,6 @@ public interface WhatsAppAccountRepository extends JpaRepository<WhatsAppAccount
     Optional<WhatsAppAccount> findByUserId(UUID userId);
 
     Optional<WhatsAppAccount> findByPhoneE164(String phoneE164);
+
+    void deleteByUserId(UUID userId);
 }

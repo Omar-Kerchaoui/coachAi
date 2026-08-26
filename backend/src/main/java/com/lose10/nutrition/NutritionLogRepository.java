@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface NutritionLogRepository extends JpaRepository<NutritionLog, UUID> {
     Optional<NutritionLog> findByUserIdAndLogDate(UUID userId, LocalDate logDate);
+
+    void deleteByUserId(UUID userId);
 }

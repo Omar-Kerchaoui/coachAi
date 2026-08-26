@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface AdminNoteRepository extends JpaRepository<AdminNote, UUID> {
     List<AdminNote> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

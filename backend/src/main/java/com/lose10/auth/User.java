@@ -54,6 +54,19 @@ public class User extends MutableEntity {
         this.status = UserStatus.DELETED;
     }
 
+    /**
+     * Scrubs PII from the row itself while leaving it in place (docs/backlog
+     * L10-1004) — subscriptions/payments/audit_logs reference this row and
+     * must survive deletion per their own retention requirements, so the
+     * account can never be hard-deleted, only anonymized. The UUID suffix
+     * guarantees no collision with the unique email index.
+     */
+    public void anonymize() {
+        this.email = "deleted-" + getId() + "@deleted.invalid";
+        this.phoneE164 = null;
+        this.status = UserStatus.DELETED;
+    }
+
     public void changePasswordHash(String newHash) {
         this.passwordHash = newHash;
     }

@@ -3,6 +3,7 @@ package com.lose10.profile;
 import com.lose10.auth.AccountService;
 import com.lose10.platform.security.CurrentUser;
 import com.lose10.profile.dto.ConsentRequest;
+import com.lose10.profile.dto.DataExportResponse;
 import com.lose10.profile.dto.ProfileResponse;
 import com.lose10.profile.dto.UpdatePreferencesRequest;
 import com.lose10.profile.dto.UpdateProfileRequest;
@@ -23,10 +24,12 @@ public class ProfileController {
 
     private final ProfileService profileService;
     private final AccountService accountService;
+    private final DataExportService dataExportService;
 
-    public ProfileController(ProfileService profileService, AccountService accountService) {
+    public ProfileController(ProfileService profileService, AccountService accountService, DataExportService dataExportService) {
         this.profileService = profileService;
         this.accountService = accountService;
+        this.dataExportService = dataExportService;
     }
 
     @GetMapping("/me")
@@ -54,6 +57,11 @@ public class ProfileController {
     public ResponseEntity<Void> revokeConsent(@PathVariable String type) {
         profileService.revokeConsent(CurrentUser.id(), type);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/export")
+    public ResponseEntity<DataExportResponse> exportMyData() {
+        return ResponseEntity.ok(dataExportService.export(CurrentUser.id()));
     }
 
     @DeleteMapping("/me")

@@ -8,4 +8,6 @@ import java.time.LocalDate;
 
 public interface DailyCheckInRepository extends JpaRepository<DailyCheckIn, UUID> {
     Optional<DailyCheckIn> findByUserIdAndCheckInDate(UUID userId, LocalDate date);
+
+    void deleteByUserId(UUID userId);
 }

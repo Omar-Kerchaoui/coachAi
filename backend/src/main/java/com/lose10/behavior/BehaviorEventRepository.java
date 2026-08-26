@@ -15,4 +15,6 @@ public interface BehaviorEventRepository extends JpaRepository<BehaviorEvent, UU
 
     @Query("SELECT DISTINCT e.userId FROM BehaviorEvent e WHERE e.createdAt > :since")
     List<UUID> findDistinctUserIdsWithEventsSince(@Param("since") Instant since);
+
+    void deleteByUserId(UUID userId);
 }

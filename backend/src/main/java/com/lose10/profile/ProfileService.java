@@ -75,6 +75,11 @@ public class ProfileService {
         consentRepository.save(new UserConsent(userId, request.consentType(), request.version(), request.source()));
     }
 
+    @Transactional(readOnly = true)
+    public List<UserConsent> listConsents(UUID userId) {
+        return consentRepository.findByUserId(userId);
+    }
+
     @Transactional
     public void revokeConsent(UUID userId, String consentType) {
         List<UserConsent> consents = consentRepository.findByUserId(userId);

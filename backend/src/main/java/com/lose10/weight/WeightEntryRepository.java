@@ -18,4 +18,6 @@ public interface WeightEntryRepository extends JpaRepository<WeightEntry, UUID> 
     List<WeightEntry> findTop90ByUserIdOrderByRecordedAtDesc(UUID userId);
 
     Optional<WeightEntry> findByIdAndUserId(UUID id, UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

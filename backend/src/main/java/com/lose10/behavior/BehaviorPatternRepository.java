@@ -10,4 +10,6 @@ public interface BehaviorPatternRepository extends JpaRepository<BehaviorPattern
     Optional<BehaviorPattern> findByUserIdAndPatternKey(UUID userId, String patternKey);
 
     List<BehaviorPattern> findByUserIdAndStatus(UUID userId, String status);
+
+    void deleteByUserId(UUID userId);
 }

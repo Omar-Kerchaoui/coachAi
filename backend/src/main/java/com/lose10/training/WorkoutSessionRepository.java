@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface WorkoutSessionRepository extends JpaRepository<WorkoutSession, UUID> {
     List<WorkoutSession> findTop20ByUserIdOrderByCompletedAtDesc(UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

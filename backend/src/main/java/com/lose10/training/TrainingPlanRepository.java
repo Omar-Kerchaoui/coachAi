@@ -9,4 +9,6 @@ public interface TrainingPlanRepository extends JpaRepository<TrainingPlan, UUID
     Optional<TrainingPlan> findByUserIdAndStatus(UUID userId, TrainingPlanStatus status);
 
     Optional<TrainingPlan> findByIdAndUserId(UUID id, UUID userId);
+
+    void deleteByUserId(UUID userId);
 }

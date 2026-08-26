@@ -44,6 +44,25 @@ public class ConversationService {
         return message;
     }
 
+    /**
+     * Resolves the id of the most recently recorded inbound message for a
+     * user — used by {@code WhatsAppWebhookService} to link the delivery
+     * metadata row to the conversation message it corresponds to, after
+     * the fact (the inbound text is recorded deeper in the pipeline, inside
+     * {@code CoachingTurnService}, which doesn't hand the id back out).
+     * Without this link, {@code whatsapp_messages} rows for inbound
+     * messages were never associated with any user at all — found via the
+     * account-deletion cascade leaving them as untouchable orphans
+     * (docs/backlog L10-1004).
+     */
+    @Transactional(readOnly = true)
+    public UUID mostRecentInboundMessageId(UUID userId) {
+        ConversationThread thread = getOrCreateThread(userId);
+        return messageRepository.findFirstByThreadIdAndDirectionOrderByCreatedAtDesc(thread.getId(), MessageDirection.INBOUND)
+                .map(ConversationMessage::getId)
+                .orElse(null);
+    }
+
     @Transactional(readOnly = true)
     public UUID userIdForThread(UUID threadId) {
         return threadRepository.findById(threadId)
@@ -56,5 +75,16 @@ public class ConversationService {
         ConversationThread thread = getOrCreateThread(userId);
         List<ConversationMessage> messages = messageRepository.findByThreadIdOrderByCreatedAtDesc(thread.getId(), PageRequest.of(0, limit));
         return messages.reversed();
+    }
+
+    /**
+     * Full conversation history across every thread the user has ever had
+     * (any channel), for the data export (docs/backlog L10-1003) — unlike
+     * {@link #recentMessages}, not bounded to one recent window.
+     */
+    @Transactional(readOnly = true)
+    public List<ConversationMessage> allMessages(UUID userId) {
+        List<UUID> threadIds = threadRepository.findByUserId(userId).stream().map(ConversationThread::getId).toList();
+        return threadIds.isEmpty() ? List.of() : messageRepository.findByThreadIdInOrderByCreatedAtAsc(threadIds);
     }
 }
